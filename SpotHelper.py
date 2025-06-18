@@ -18,18 +18,6 @@ def make_image(config: SimulationConfig):
     IPLat = 39.7065614
     IPLong = -75.0352181
 
-    # Skydiver/Simulation parameters
-    EXIT_ALTITUDE_FT = config.exit_altitude_ft
-    DEPLOY_ALTITUDE_FT = config.deploy_altitude_ft
-    MASS_KG = config.mass_kg
-    CDA = config.CdA  # Drag area (m^2)
-    CANOPY_V_VERT_FPS = config.canopy_v_vert_fps  # Canopy vertical descent rate (ft/s)
-    CANOPY_V_HORIZ_FPS = config.canopy_v_horiz_fps  # Canopy horizontal speed (ft/s) for glide circle
-    DT = config.dt  # Time step (s)
-    SAT_IMG_ZOOM = config.sat_img_zoom  # Satellite image zoom level
-    SAT_IMG_SIZE = config.sat_img_size  # Satellite image size (pixels)
-    CIRCLE_RESOLUTION = config.circle_resolution  # Number of points for glide circle
-
     # Pull Winds
     RawWinds = get_winds_aloft_table(IPLat, IPLong)
     print(RawWinds)
@@ -37,14 +25,14 @@ def make_image(config: SimulationConfig):
 
     # First simulation: exit directly over target
     alts, norths, easts, times, phases = simulate_freefall_and_canopy(
-        alt0_ft=EXIT_ALTITUDE_FT,
-        mass_kg=MASS_KG,
-        CdA=CDA,
+        alt0_ft=config.exit_altitude_ft,
+        mass_kg=config.mass_kg,
+        CdA=config.CdA,
         north_interp=north_interp,
         east_interp=east_interp,
-        deploy_alt_ft=DEPLOY_ALTITUDE_FT,
-        canopy_v_vert_fps=CANOPY_V_VERT_FPS,
-        dt=DT
+        deploy_alt_ft=config.deploy_altitude_ft,
+        canopy_v_vert_fps=config.canopy_v_vert_fps,
+        dt=config.dt
     )
 
     # Calculate required exit offset to land at IPLat/IPLong
@@ -58,28 +46,31 @@ def make_image(config: SimulationConfig):
 
     # Rerun simulation from the new exit point
     alts, norths, easts, times, phases = simulate_freefall_and_canopy(
-        alt0_ft=EXIT_ALTITUDE_FT,
-        mass_kg=MASS_KG,
-        CdA=CDA,
+        alt0_ft=config.exit_altitude_ft,
+        mass_kg=config.mass_kg,
+        CdA=config.CdA,
         north_interp=north_interp,
         east_interp=east_interp,
-        deploy_alt_ft=DEPLOY_ALTITUDE_FT,
-        canopy_v_vert_fps=CANOPY_V_VERT_FPS,
-        dt=DT,
+        deploy_alt_ft=config.deploy_altitude_ft,
+        canopy_v_vert_fps=config.canopy_v_vert_fps,
+        dt=config.dt,
         north0=required_north_offset,
         east0=required_east_offset
     )
 
     # Get satellite image and bounding box
-    img, (lat_min, lat_max, lon_min, lon_max) = get_sat_image(IPLat, IPLong, zoom=SAT_IMG_ZOOM, size=SAT_IMG_SIZE)
+    img, (lat_min, lat_max, lon_min, lon_max) = get_sat_image(
+        IPLat, IPLong, zoom=(
+            config.sat_img_zoom), size=config.sat_img_size
+    )
 
     # Convert trajectory to lat/lon
     traj_lat, traj_lon = meters_to_latlon(norths, easts, IPLat, IPLong)
 
     # Calculate canopy glide distance (in meters)
-    canopy_v_vert_mps = CANOPY_V_VERT_FPS * 0.3048
-    canopy_v_horiz_mps = CANOPY_V_HORIZ_FPS * 0.3048
-    deploy_alt_m = DEPLOY_ALTITUDE_FT * 0.3048
+    canopy_v_vert_mps = config.canopy_v_vert_fps * 0.3048
+    canopy_v_horiz_mps = config.canopy_v_horiz_fps * 0.3048
+    deploy_alt_m = config.deploy_altitude_ft * 0.3048
 
     # Time under canopy (seconds)
     canopy_time = deploy_alt_m / canopy_v_vert_mps
@@ -87,7 +78,7 @@ def make_image(config: SimulationConfig):
     glide_distance = canopy_v_horiz_mps * canopy_time
 
     # Generate circle points around exit location
-    theta = np.linspace(0, 2 * np.pi, CIRCLE_RESOLUTION)
+    theta = np.linspace(0, 2 * np.pi, config.circle_resolution)
     circle_north = glide_distance * np.cos(theta)
     circle_east = glide_distance * np.sin(theta)
     circle_lat, circle_lon = meters_to_latlon(circle_north + required_north_offset, circle_east + required_east_offset, IPLat, IPLong)
@@ -110,7 +101,6 @@ def make_image(config: SimulationConfig):
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.legend()
-    plt.show()
 
     final_lat, final_lon = traj_lat[-1], traj_lon[-1]
     print(f"Landing at: {final_lat}, {final_lon}")
