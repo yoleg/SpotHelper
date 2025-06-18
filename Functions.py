@@ -6,6 +6,7 @@ from scipy.interpolate import interp1d
 from PIL import Image
 from io import BytesIO
 
+
 def get_winds_aloft_table(latitude, longitude):
     url = (
         "https://api.open-meteo.com/v1/forecast"
