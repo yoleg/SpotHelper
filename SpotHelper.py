@@ -8,8 +8,7 @@ from Functions import (
     get_winds_aloft_table, get_wind_component_interpolators, get_sat_image,
     meters_to_latlon, simulate_freefall_and_canopy
 )
-from data_classes import SimulationConfig
-
+from data_classes import SimulationConfig, PlotDisplayParameters, MapImage, LatLon
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,14 +26,9 @@ def run_simulation(config: SimulationConfig, winds: DataFrame = None):
 
     # First simulation: exit directly over target
     alts, norths, easts, times, phases = simulate_freefall_and_canopy(
-        alt0_ft=config.exit_altitude_ft,
-        mass_kg=config.mass_kg,
-        CdA=config.CdA,
+        config,
         north_interp=north_interp,
         east_interp=east_interp,
-        deploy_alt_ft=config.deploy_altitude_ft,
-        canopy_v_vert_fps=config.canopy_v_vert_fps,
-        dt=config.dt
     )
 
     # Calculate required exit offset to land at IPLat/IPLong
@@ -44,30 +38,21 @@ def run_simulation(config: SimulationConfig, winds: DataFrame = None):
     required_east_offset = -final_east
 
     exit_lat, exit_lon = meters_offset_to_latlon(
-        required_north_offset, required_east_offset, config.ip_lat,
-        config.ip_long
+        required_north_offset, required_east_offset, config.ip_lat, config.ip_long
     )
     LOGGER.info(f"Exit at: {exit_lat}, {exit_lon}")
 
     # Rerun simulation from the new exit point
     alts, norths, easts, times, phases = simulate_freefall_and_canopy(
-        alt0_ft=config.exit_altitude_ft,
-        mass_kg=config.mass_kg,
-        CdA=config.CdA,
+        config,
         north_interp=north_interp,
         east_interp=east_interp,
-        deploy_alt_ft=config.deploy_altitude_ft,
-        canopy_v_vert_fps=config.canopy_v_vert_fps,
-        dt=config.dt,
         north0=required_north_offset,
-        east0=required_east_offset
+        east0=required_east_offset,
     )
 
     # Get satellite image and bounding box
-    img, (lat_min, lat_max, lon_min, lon_max) = get_sat_image(
-        config.ip_lat, config.ip_long, zoom=(
-            config.sat_img_zoom), size=config.sat_img_size
-    )
+    satellite_image = get_sat_image(config.ip_lat, config.ip_long, zoom=config.sat_img_zoom, size=config.sat_img_size)
 
     # Convert trajectory to lat/lon
     traj_lat, traj_lon = meters_to_latlon(norths, easts, config.ip_lat, config.ip_long)
@@ -91,70 +76,56 @@ def run_simulation(config: SimulationConfig, winds: DataFrame = None):
         config.ip_lat, config.ip_long
     )
 
-    make_plot2(
-        circle_lat,
-        circle_lon,
-        config,
-        exit_lat,
-        exit_lon,
-        img,
-        lat_max,
-        lat_min,
-        lon_max,
-        lon_min,
-        phases,
-        traj_lat,
-        traj_lon
+    exit_latlon = LatLon(exit_lat, exit_lon)
+    ip_latlon = LatLon(config.ip_lat, config.ip_long)
+    plot_params = PlotDisplayParameters(
+        ip=ip_latlon,
+        exit=exit_latlon,
+        circle_lat=circle_lat,
+        circle_lon=circle_lon,
+        phases=phases,
+        traj_lat=traj_lat,
+        traj_lon=traj_lon
     )
+    make_plot(plot_params, map_image=satellite_image)
 
-    final_lat, final_lon = traj_lat[-1], traj_lon[-1]
-    LOGGER.info(f"Landing at: {final_lat}, {final_lon}")
+    final_latlon = LatLon(traj_lat[-1], traj_lon[-1])
+    LOGGER.info(f"Landing at: {final_latlon}")
 
     return plt
 
 
-def make_plot2(
-        circle_lat,
-        circle_lon,
-        config,
-        exit_lat,
-        exit_lon,
-        img,
-        lat_max,
-        lat_min,
-        lon_max,
-        lon_min,
-        phases,
-        traj_lat,
-        traj_lon
-):
+def make_plot(params: PlotDisplayParameters, map_image: MapImage = None):
     # Plot trajectory over satellite image, coloring by phase
     plt.figure(figsize=(8, 8))
-    if img is None:
+    if map_image is None:
         plt.title('Skydiver Trajectory (No Satellite Image, Phase Colored)')
         LOGGER.info("Satellite image could not be retrieved. Plotting trajectory only.")
     else:
-        plt.imshow(img, extent=[lon_min, lon_max, lat_min, lat_max], origin='upper')
+        plt.imshow(map_image.image, extent=(
+            map_image.bounding_box[2], map_image.bounding_box[3],
+            map_image.bounding_box[0], map_image.bounding_box[1]
+        ), aspect='auto')
         plt.title('Skydiver Trajectory over Yandex Satellite Image (Phase Colored)')
-    freefall_mask = np.array(phases) == 0
-    canopy_mask = np.array(phases) == 1
+    freefall_mask = np.array(params.phases) == 0
+    canopy_mask = np.array(params.phases) == 1
     plt.plot(
-        np.array(traj_lon)[freefall_mask],
-        np.array(traj_lat)[freefall_mask],
+        np.array(params.traj_lon)[freefall_mask],
+        np.array(params.traj_lat)[freefall_mask],
         color='red',
         linewidth=2,
         label='Freefall'
     )
     plt.plot(
-        np.array(traj_lon)[canopy_mask],
-        np.array(traj_lat)[canopy_mask],
+        np.array(params.traj_lon)[canopy_mask],
+        np.array(params.traj_lat)[canopy_mask],
         color='blue',
         linewidth=2,
         label='Canopy'
     )
-    plt.plot(circle_lon, circle_lat, color='green', linestyle='--', label='Canopy Glide Circle')
-    plt.scatter([exit_lon], [exit_lat], color='cyan', marker='o', label='Exit Point')
-    plt.scatter([(config.ip_long)], [(config.ip_lat)], color='yellow', marker='x', label='Dropzone')
+    plt.plot(params.circle_lon, params.circle_lat, color='green', linestyle='--', label='Canopy Glide Circle')
+    plt.scatter([params.exit.lon], [params.exit.lat], color='cyan', marker='o', label='Exit Point')
+    plt.scatter([params.ip.lon], [params.ip.lat], color='yellow', marker='x', label='Dropzone')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     plt.legend()

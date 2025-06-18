@@ -1,10 +1,13 @@
+from datetime import datetime, timezone
+from io import BytesIO
+
 import requests
 import pandas as pd
-from datetime import datetime, timezone
 import numpy as np
 from scipy.interpolate import interp1d
 from PIL import Image
-from io import BytesIO
+
+from data_classes import SimulationConfig, MapImage
 
 
 def get_winds_aloft_table(latitude, longitude):
@@ -26,7 +29,7 @@ def get_winds_aloft_table(latitude, longitude):
 
     response = requests.get(url)
     data = response.json()
-    #print("Raw Open-Meteo response:", data)
+    # print("Raw Open-Meteo response:", data)
 
     level_to_altitude = {
         "10m": 33,
@@ -59,15 +62,18 @@ def get_winds_aloft_table(latitude, longitude):
     for level in levels:
         speed = data['hourly'][f'wind_speed_{level}'][current_index]
         direction = data['hourly'][f'wind_direction_{level}'][current_index]
-        winds.append({
-            'Altitude (ft)': level_to_altitude[level],
-            'Wind Speed (m/s)': speed,
-            'Wind Direction (deg)': direction,
-            'Level': level
-        })
+        winds.append(
+            {
+                'Altitude (ft)': level_to_altitude[level],
+                'Wind Speed (m/s)': speed,
+                'Wind Direction (deg)': direction,
+                'Level': level
+            }
+        )
 
     df = pd.DataFrame(winds)
     return df
+
 
 def get_wind_component_interpolators(wind_df):
     """
@@ -88,7 +94,8 @@ def get_wind_component_interpolators(wind_df):
 
     return north_interp, east_interp
 
-def get_sat_image(latitude, longitude, zoom=13, size=400):
+
+def get_sat_image(latitude: float, longitude: float, zoom=13, size=400) -> MapImage | None:
     """
     Downloads a satellite image centered at (latitude, longitude) using Yandex Static Maps.
     Returns a PIL Image and the bounding box (lat_min, lat_max, lon_min, lon_max).
@@ -104,7 +111,7 @@ def get_sat_image(latitude, longitude, zoom=13, size=400):
     if 'image' not in resp.headers.get('Content-Type', ''):
         print("Yandex did not return an image. Response headers:", resp.headers)
         print("Response content (truncated):", resp.content[:200])
-        return None, (None, None, None, None)
+        return None
     img = Image.open(BytesIO(resp.content))
 
     meters_per_pixel = 156543.03392 * np.cos(np.radians(latitude)) / (2 ** zoom)
@@ -116,7 +123,10 @@ def get_sat_image(latitude, longitude, zoom=13, size=400):
     lon_min = longitude - dlon
     lon_max = longitude + dlon
 
-    return img, (lat_min, lat_max, lon_min, lon_max)
+    return MapImage(
+        image=img,
+        bounding_box=(lat_min, lat_max, lon_min, lon_max)
+    )
 
 
 def meters_to_latlon(north, east, lat0, lon0):
@@ -128,38 +138,40 @@ def meters_to_latlon(north, east, lat0, lon0):
     dlon = east / (40075000 * np.cos(np.radians(lat0)) / 360)
     return lat0 + dlat, lon0 + dlon
 
+
 def air_pressure(alt_m):
     """
     Returns air pressure in Pascals at altitude alt_m (meters) using the barometric formula.
     """
-    P0 = 101325      # Sea level standard atmospheric pressure, Pa
-    L = 0.0065       # Temperature lapse rate, K/m
-    T0 = 288.15      # Sea level standard temperature, K
-    g = 9.80665      # Gravity, m/s^2
-    M = 0.0289644    # Molar mass of dry air, kg/mol
-    R = 8.3144598    # Universal gas constant, J/(mol·K)
+    P0 = 101325  # Sea level standard atmospheric pressure, Pa
+    L = 0.0065  # Temperature lapse rate, K/m
+    T0 = 288.15  # Sea level standard temperature, K
+    g = 9.80665  # Gravity, m/s^2
+    M = 0.0289644  # Molar mass of dry air, kg/mol
+    R = 8.3144598  # Universal gas constant, J/(mol·K)
     return P0 * (1 - L * alt_m / T0) ** (g * M / (R * L))
 
+
 def simulate_freefall(
-    alt0_ft,
-    mass_kg,
-    CdA,
-    north_interp,
-    east_interp,
-    dt=0.1,
-    v_vert0=0.0,
-    north0=0.0,
-    east0=0.0
+        alt0_ft,
+        mass_kg,
+        CdA,
+        north_interp,
+        east_interp,
+        dt=0.1,
+        v_vert0=0.0,
+        north0=0.0,
+        east0=0.0
 ):
     """
     Simulate a skydiver's freefall with altitude-dependent air pressure/density and wind drift.
     Returns arrays: alts_ft, norths_m, easts_m, times_s
     """
     alt = alt0_ft * 0.3048  # initial altitude in meters
-    v_vert = v_vert0         # initial vertical velocity (down, m/s)
-    north = north0           # initial north position (meters)
-    east = east0             # initial east position (meters)
-    g = 9.81                 # gravity (m/s^2)
+    v_vert = v_vert0  # initial vertical velocity (down, m/s)
+    north = north0  # initial north position (meters)
+    east = east0  # initial east position (meters)
+    g = 9.81  # gravity (m/s^2)
 
     alts = []
     norths = []
@@ -181,7 +193,7 @@ def simulate_freefall(
         rho = pressure / (R_specific * temp)
 
         # Drag force
-        drag = 0.5 * rho * v_vert**2 * CdA * np.sign(v_vert)
+        drag = 0.5 * rho * v_vert ** 2 * CdA * np.sign(v_vert)
         F_net = mass_kg * g - drag
         a = F_net / mass_kg
 
@@ -199,31 +211,27 @@ def simulate_freefall(
 
     return np.array(alts), np.array(norths), np.array(easts), np.array(times)
 
+
 def simulate_freefall_and_canopy(
-    alt0_ft,
-    mass_kg,
-    CdA,
-    north_interp,
-    east_interp,
-    deploy_alt_ft=3000,
-    canopy_v_vert_fps=14,
-    dt=0.1,
-    v_vert0=0.0,
-    north0=0.0,
-    east0=0.0
+        config: SimulationConfig,
+        north_interp: callable,
+        east_interp: callable,
+        v_vert0: float = 0.0,
+        north0: float = 0.0,
+        east0: float = 0.0,
 ):
     """
     Simulate freefall to deploy_alt_ft, then non-gliding canopy descent at canopy_v_vert_fps.
     Returns arrays: alts_ft, norths_m, easts_m, times_s, phases (0=freefall, 1=canopy)
     """
-    alt = alt0_ft * 0.3048
-    deploy_alt_m = deploy_alt_ft * 0.3048
+    alt = config.exit_altitude_ft * 0.3048
+    deploy_alt_m = config.deploy_altitude_ft * 0.3048
     v_vert = v_vert0
     north = north0
     east = east0
     g = 9.81
 
-    canopy_v_vert = canopy_v_vert_fps * 0.3048
+    canopy_v_vert = config.canopy_v_vert_fps * 0.3048
 
     alts = []
     norths = []
@@ -232,7 +240,7 @@ def simulate_freefall_and_canopy(
     phases = []
 
     t = 0.0
-    phase = 0  # 0 = freefall, 1 = canopy
+    # phase: 0 = freefall, 1 = canopy
 
     while alt > 0:
         alt_ft = alt / 0.3048
@@ -245,20 +253,20 @@ def simulate_freefall_and_canopy(
             temp = 288.15 - 0.0065 * alt
             R_specific = 287.058
             rho = pressure / (R_specific * temp)
-            drag = 0.5 * rho * v_vert**2 * CdA * np.sign(v_vert)
-            F_net = mass_kg * g - drag
-            a = F_net / mass_kg
-            v_vert += a * dt
-            alt -= v_vert * dt
-            north += wind_north * dt
-            east += wind_east * dt
+            drag = 0.5 * rho * v_vert ** 2 * config.CdA * np.sign(v_vert)
+            F_net = config.mass_kg * g - drag
+            a = F_net / config.mass_kg
+            v_vert += a * config.dt
+            alt -= v_vert * config.dt
+            north += wind_north * config.dt
+            east += wind_east * config.dt
             phase = 0
         else:
             # Non-gliding canopy: only wind drift, constant vertical descent
             v_vert = canopy_v_vert
-            north += wind_north * dt
-            east += wind_east * dt
-            alt -= v_vert * dt
+            north += wind_north * config.dt
+            east += wind_east * config.dt
+            alt -= v_vert * config.dt
             phase = 1
 
         alts.append(alt / 0.3048)
@@ -266,6 +274,6 @@ def simulate_freefall_and_canopy(
         easts.append(east)
         times.append(t)
         phases.append(phase)
-        t += dt
+        t += config.dt
 
     return np.array(alts), np.array(norths), np.array(easts), np.array(times), np.array(phases)
