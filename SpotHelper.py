@@ -96,16 +96,21 @@ def run_simulation(config: SimulationConfig, winds: DataFrame = None):
 
 
 def make_plot(params: PlotDisplayParameters, map_image: MapImage = None):
-    # Plot trajectory over satellite image, coloring by phase
     plt.figure(figsize=(8, 8))
     if map_image is None:
         plt.title('Skydiver Trajectory (No Satellite Image, Phase Colored)')
         LOGGER.info("Satellite image could not be retrieved. Plotting trajectory only.")
     else:
-        plt.imshow(map_image.image, extent=(
-            map_image.bounding_box[2], map_image.bounding_box[3],
-            map_image.bounding_box[0], map_image.bounding_box[1]
-        ), aspect='auto')
+        ax = plt.gca()
+        ax.imshow(
+            map_image.image,
+            extent=(map_image.bounding_box[2], map_image.bounding_box[3], map_image.bounding_box[0], map_image.bounding_box[1]),
+            aspect='auto',
+            origin='upper',
+            zorder=0
+        )
+        ax.set_xlim(map_image.bounding_box[2], map_image.bounding_box[3])
+        ax.set_ylim(map_image.bounding_box[0], map_image.bounding_box[1])
         plt.title('Skydiver Trajectory over Yandex Satellite Image (Phase Colored)')
     freefall_mask = np.array(params.phases) == 0
     canopy_mask = np.array(params.phases) == 1
