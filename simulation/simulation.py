@@ -1,16 +1,9 @@
 import numpy as np
 from pandas import DataFrame
 
-from Functions import (
-    get_winds_aloft_table, get_wind_component_interpolators, meters_to_latlon, simulate_freefall_and_canopy
-)
-from data_classes import SimulationConfig, SimulationResults, LatLon
-
-
-def meters_offset_to_latlon(north_offset, east_offset, lat0, lon0):
-    dlat = north_offset / 111320
-    dlon = east_offset / (111320 * np.cos(np.radians(lat0)))
-    return LatLon(lat0 + dlat, lon0 + dlon)
+from simulation.fetch import get_winds_aloft_table
+from simulation.data_classes import LatLon, SimulationConfig, SimulationResults
+from simulation.functions import get_wind_component_interpolators, simulate_freefall_and_canopy, meters_to_latlon
 
 
 def run_simulation(config: SimulationConfig, winds: DataFrame = None) -> SimulationResults:
@@ -32,9 +25,7 @@ def run_simulation(config: SimulationConfig, winds: DataFrame = None) -> Simulat
     required_north_offset = -final_north
     required_east_offset = -final_east
 
-    exit_latlon = meters_offset_to_latlon(
-        required_north_offset, required_east_offset, ip_latlon.lat, ip_latlon.lon
-    )
+    exit_latlon = meters_offset_to_latlon(required_north_offset, required_east_offset, ip_latlon)
 
     # Rerun simulation from the new exit point
     alts, norths, easts, times, phases = simulate_freefall_and_canopy(
@@ -76,3 +67,9 @@ def run_simulation(config: SimulationConfig, winds: DataFrame = None) -> Simulat
         trajectory_latitudes=traj_lat,
         trajectory_longitudes=traj_lon
     )
+
+
+def meters_offset_to_latlon(north_offset, east_offset, location: LatLon):
+    dlat = north_offset / 111320
+    dlon = east_offset / (111320 * np.cos(np.radians(location.lat)))
+    return LatLon(location.lat + dlat, location.lon + dlon)
