@@ -1,6 +1,6 @@
 streamlit~=1.45.1
 requests~=2.32.4
-pandas~=2.3.0
+pandas[lxml]~=2.3.0
 numpy~=2.3.0
 scipy~=1.15.3
 pillow~=11.2.1
