@@ -1,19 +1,21 @@
 from datetime import datetime, timezone
-from io import BytesIO
 
 import requests
 import pandas as pd
 import numpy as np
+import streamlit as st
+from pandas import DataFrame
 from scipy.interpolate import interp1d
-from PIL import Image
 
-from data_classes import SimulationConfig, MapImage
+from const import WINDS_ALOFT_CACHE_TTL_SECONDS
+from data_classes import SimulationConfig, LatLon
 
 
-def get_winds_aloft_table(latitude, longitude):
+@st.cache_data(ttl=WINDS_ALOFT_CACHE_TTL_SECONDS, show_spinner="Fetching winds aloft")
+def get_winds_aloft_table(coordinates: LatLon) -> DataFrame:
     url = (
         "https://api.open-meteo.com/v1/forecast"
-        f"?latitude={latitude}&longitude={longitude}"
+        f"?latitude={coordinates.lat}&longitude={coordinates.lon}"
         "&hourly=wind_speed_10m,wind_direction_10m,"
         "wind_speed_80m,wind_direction_80m,"
         "wind_speed_100m,wind_direction_100m,"
@@ -95,48 +97,14 @@ def get_wind_component_interpolators(wind_df):
     return north_interp, east_interp
 
 
-def get_sat_image(latitude: float, longitude: float, zoom=13, size=400) -> MapImage | None:
-    """
-    Downloads a satellite image centered at (latitude, longitude) using Yandex Static Maps.
-    Returns a PIL Image and the bounding box (lat_min, lat_max, lon_min, lon_max).
-    """
-    url = (
-        "https://static-maps.yandex.ru/1.x/"
-        f"?ll={longitude},{latitude}"
-        f"&z={zoom}"
-        f"&l=sat"
-        f"&size={size},{size}"
-    )
-    resp = requests.get(url)
-    if 'image' not in resp.headers.get('Content-Type', ''):
-        print("Yandex did not return an image. Response headers:", resp.headers)
-        print("Response content (truncated):", resp.content[:200])
-        return None
-    img = Image.open(BytesIO(resp.content))
-
-    meters_per_pixel = 156543.03392 * np.cos(np.radians(latitude)) / (2 ** zoom)
-    half_side_m = (size / 2) * meters_per_pixel
-    dlat = (half_side_m / 111320)
-    dlon = half_side_m / (40075000 * np.cos(np.radians(latitude)) / 360)
-    lat_min = latitude - dlat
-    lat_max = latitude + dlat
-    lon_min = longitude - dlon
-    lon_max = longitude + dlon
-
-    return MapImage(
-        image=img,
-        bounding_box=(lat_min, lat_max, lon_min, lon_max)
-    )
-
-
-def meters_to_latlon(north, east, lat0, lon0):
+def meters_to_latlon(north, east, location: LatLon):
     """
     Converts north/east meters to latitude/longitude offsets from (lat0, lon0).
     Returns arrays of latitudes and longitudes.
     """
     dlat = north / 111320  # meters per degree latitude
-    dlon = east / (40075000 * np.cos(np.radians(lat0)) / 360)
-    return lat0 + dlat, lon0 + dlon
+    dlon = east / (40075000 * np.cos(np.radians(location.lat)) / 360)
+    return location.lat + dlat, location.lon + dlon
 
 
 def air_pressure(alt_m):
@@ -254,8 +222,8 @@ def simulate_freefall_and_canopy(
             R_specific = 287.058
             rho = pressure / (R_specific * temp)
             drag = 0.5 * rho * v_vert ** 2 * config.CdA * np.sign(v_vert)
-            F_net = config.mass_kg * g - drag
-            a = F_net / config.mass_kg
+            F_net = config.mass_lb * g - drag
+            a = F_net / config.mass_lb
             v_vert += a * config.dt
             alt -= v_vert * config.dt
             north += wind_north * config.dt

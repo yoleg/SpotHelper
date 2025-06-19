@@ -3,11 +3,28 @@ from dataclasses import dataclass
 from PIL import Image
 
 
+# lat lon coordinates class that can be instantiated without keyword args, namedtuple style
+@dataclass(frozen=True)
+class LatLon:
+    lat: float
+    lon: float
+
+    def __post_init__(self):
+        if not (-90 <= self.lat <= 90):
+            raise ValueError("Latitude must be between -90 and 90 degrees.")
+        if not (-180 <= self.lon <= 180):
+            raise ValueError("Longitude must be between -180 and 180 degrees.")
+
+    def __str__(self):
+        return f"({self.lat}, {self.lon})"
+
+    def __iter__(self):
+        return iter((self.lat, self.lon))
+
+
 @dataclass
 class SimulationConfig:
-    ip_lat: float = 39.7065614
-    ip_long: float = -75.0352181
-
+    location: LatLon = LatLon(39.7065614, -75.0352181)
     exit_altitude_ft: float = 13000  # Exit altitude (ft)
     deploy_altitude_ft: float = 3000  # Canopy deployment altitude (ft)
     mass_kg: float = 90  # Skydiver mass (kg)
@@ -19,39 +36,32 @@ class SimulationConfig:
     sat_img_size: int = 400  # Satellite image size (pixels)
     circle_resolution: int = 200  # Number of points for glide circle
 
+    @property
+    def mass_lb(self):
+        return self.mass_kg * 2.20462
 
-# lat lon coordinates class that can be instantiated without keyword args, namedtuple style
-@dataclass
-class LatLon:
-    lat: float
-    lon: float
-
-    def __post_init__(self):
-        if not (-90 <= self.lat <= 90):
-            raise ValueError("Latitude must be between -90 and 90 degrees.")
-        if not (-180 <= self.lon <= 180):
-            raise ValueError("Longitude must be between -180 and 180 degrees.")
+    @mass_lb.setter
+    def mass_lb(self, value):
+        self.mass_kg = value / 2.20462
 
 
-@dataclass
-class PlotDisplayParameters:
+@dataclass(frozen=True)
+class SimulationResults:
     ip: LatLon
     exit: LatLon
 
-    circle_lat: list
-    circle_lon: list
+    circle_latitudes: list
+    circle_longitudes: list
     phases: list
-    traj_lat: list
-    traj_lon: list
+    trajectory_latitudes: list
+    trajectory_longitudes: list
+
+    @property
+    def final_latlon(self) -> LatLon:
+        return LatLon(self.trajectory_latitudes[-1], self.trajectory_longitudes[-1])
 
 
-@dataclass
+@dataclass(frozen=True)
 class MapImage:
     image: Image
     bounding_box: tuple  # (lat_min, lat_max, lon_min, lon_max)
-
-
-
-@dataclass
-class SimulationResults:
-    final: LatLon
