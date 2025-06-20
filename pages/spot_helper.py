@@ -9,7 +9,7 @@ from simulation.plot import make_plot
 from ui.common import common_page_initialization
 from ui.input_simulation_config import form_simulation_config
 
-common_page_initialization("Spot Helper Demo")
+common_page_initialization("Spot Helper")
 
 
 def main():

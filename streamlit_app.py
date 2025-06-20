@@ -4,7 +4,7 @@ import streamlit as st
 
 pages_root = Path('.')
 pages = [
-    st.Page(pages_root / r"pages/spot_helper.py", title="Spot Helper Demo", icon="🪂"),
+    st.Page(pages_root / r"pages/spot_helper.py", title="Spot Helper", icon="🪂"),
     st.Page(pages_root / r"pages/winds.py", title="Winds Aloft", icon="🌬️"),
     st.Page(pages_root / r"pages/dropzones.py", title="Dropzone List", icon="📃"),
     st.Page(pages_root / r"pages/canopies.py", title="Canopies List", icon="📃"),
