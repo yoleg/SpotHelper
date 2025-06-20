@@ -6,11 +6,10 @@ from simulation.data_classes import LatLon, SimulationConfig, SimulationResults
 from simulation.functions import get_wind_component_interpolators, simulate_freefall_and_canopy, meters_to_latlon
 
 
-def run_simulation(config: SimulationConfig, winds: DataFrame = None) -> SimulationResults:
+def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResults:
     # Pull Winds
     ip_latlon = config.location
-    raw_winds = winds or get_winds_aloft_table(ip_latlon)
-    north_interp, east_interp = get_wind_component_interpolators(raw_winds)
+    north_interp, east_interp = get_wind_component_interpolators(winds)
 
     # First simulation: exit directly over target
     alts, norths, easts, times, phases = simulate_freefall_and_canopy(

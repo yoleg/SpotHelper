@@ -1,0 +1,9 @@
+Name,Size (Sqft),Horizontal Airspeed (mph),Vertical Descent Airspeed (mph)
+Military,400-360,23.5,8.5
+Student,280-200,25,8.5
+Novice,190-170,30,12.5
+Intermediate / HP,170-150,34,13.5
+Advanced / HP,150-120,38,13.5
+Expert / HP,120-100,39,16
+Ultra HP,100-79,50,19
+Competition,<79,55,20
