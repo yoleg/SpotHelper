@@ -7,43 +7,33 @@ import pandas as pd
 
 from simulation.data_classes import Coordinates
 
-EXPECTED_DROPZONE_COLUMNS = {'DZ', 'Latitude', 'Longitude'}  # subset of expected columns
 DROPZONES_SOURCE_URL = "https://wingsuit.world/dropzones/"
 DROPZONES_SOURCE_NAME = "Wingsuit World"
 DATA_DIR = Path(__file__).parent.parent / "data"
 DROPZONE_FALLBACK_CSV = DATA_DIR / "dropzones-wingsuit-world.csv"
 DROPZONE_ADDITIONAL_CSV = DATA_DIR / "dropzones-extra.csv"  # additional dropzones not on Wingsuit World
-DROPZONE_FIELD_REPLACEMENTS = {
+WINGSUIT_WORLD_FIELD_MAP = {
     'Elevation (m)': 'ElevationMeters',  # spaces not allowed in field names
+    'Location': 'Locality',  # for clarity
+    'DZ': 'DZName',  # for clarity
 }
-INDEX_COLS = ['DZ', 'Location', 'Country']
 
 
 @dataclass(frozen=True)
 class Dropzone:  # dataclass for type hinting and validation, and immutability
-    DZ: str
     Latitude: float
     Longitude: float
-    Location: str
-    Country: str
     ElevationMeters: float
+    DZName: str
+    Locality: str
+    Country: str
     Source: str = ""
 
     @property
-    def location_display_name(self) -> str:
-        if self.Location and self.Country:
-            return f"{self.Location}, {self.Country}"
-        if self.Location:
-            return self.Location
-        if self.Country:
-            return self.Country
-        return "unknown location"
-
-    @property
     def display_name(self) -> str:
-        if self.DZ:
-            return f"{self.DZ} ({self.location_display_name})"
-        return f"unknown name at {self.location_display_name}"
+        if self.DZName:
+            return self.DZName
+        return f"{self.Locality}, {self.Country}"
 
     @property
     def location(self) -> Coordinates:
@@ -57,22 +47,18 @@ DROPZONE_FIELDS = {f.name for f in dataclasses.fields(Dropzone)}
 
 def get_dropzones() -> list[Dropzone]:
     df = get_dropzones_df()
-    return df_to_dataclass_list(df)
-
-def df_to_dataclass_list(df: pd.DataFrame) -> list[Dropzone]:
-    df = df.rename(columns=DROPZONE_FIELD_REPLACEMENTS)
-
-    if not DROPZONE_FIELDS.issubset(df.columns):
-        raise ValueError(f"DataFrame must contain the following fields: {DROPZONE_FIELDS}")
-
-    return [Dropzone(**row) for row in df.to_dict(orient='records')]
+    dropzones = [Dropzone(**row) for row in df.to_dict(orient='records')]
+    if duplicate_names := len(set(dz.display_name for dz in dropzones)) != len(dropzones):
+        st.warning("Warning: Some dropzones have duplicate display names. This may cause confusion in the UI.")
+        st.warning(f"Example duplicate names: {[x for x in duplicate_names[:10]]}")
+    return dropzones
 
 
 def get_dropzones_df() -> pd.DataFrame:
     """
     Fetches the dropzones from the Wingsuit World website or falls back to a local CSV file.
     """
-    df = _fetch_dropzones()
+    df = _scrape_dropzones_from_website()
     if df is None:
         st.warning(f"No valid dropzone table found at {DROPZONES_SOURCE_URL}. Reverting to CSV fallback.")
         df = pd.read_csv(DROPZONE_FALLBACK_CSV)
@@ -83,26 +69,23 @@ def get_dropzones_df() -> pd.DataFrame:
     extra['Source'] = DROPZONE_ADDITIONAL_CSV.name
     df = pd.concat([extra, df])
 
-    df.index = pd.MultiIndex.from_frame(df[INDEX_COLS], names=INDEX_COLS)
-    if not df.index.is_unique:
-        st.warning("Dropzone DataFrame index must be unique. Check for duplicate entries.")
-
     # replace NaN values with empty strings for string columns
-    df[df.select_dtypes(include='object').columns].fillna('', inplace=True)
+    df[df.select_dtypes(include=['object']).columns] = df.select_dtypes(include=['object']).fillna('')
 
     return df
 
 
 @st.cache_data(ttl=3600, show_spinner="Fetching dropzones")
-def _fetch_dropzones() -> pd.DataFrame | None:
+def _scrape_dropzones_from_website() -> pd.DataFrame | None:
     """
     Fetches the dropzones from the Wingsuit World website or falls back to a local CSV file.
     """
     tables = pd.read_html(DROPZONES_SOURCE_URL)
     for table in tables:
         columns = set(table.columns)
-        if EXPECTED_DROPZONE_COLUMNS.issubset(columns):
+        if set(WINGSUIT_WORLD_FIELD_MAP).issubset(columns):
             table['Source'] = DROPZONES_SOURCE_NAME
+            table = table.rename(columns=WINGSUIT_WORLD_FIELD_MAP)
             return table
     return None
 
