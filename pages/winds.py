@@ -1,15 +1,16 @@
 import streamlit as st
 
+from simulation.data_classes import SimulationConfig
 from simulation.fetch import get_winds_aloft_table
 from ui.common import common_page_initialization
-from ui.input_location import input_location
-
+from ui.input_location import input_location, Location
 
 common_page_initialization("Winds Aloft")
 
 with st.sidebar:
-    location = input_location()
+    location = input_location(default=Location(coordinates=SimulationConfig().location))
 
-winds = get_winds_aloft_table(location)
+winds = get_winds_aloft_table(location.coordinates)
+winds = winds.sort_values(by='Altitude (ft)', ascending=False).reset_index(drop=True)
 
-st.dataframe(winds)
+st.dataframe(winds, use_container_width=True, hide_index=True)

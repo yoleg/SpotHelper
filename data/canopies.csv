@@ -1,4 +1,4 @@
-Name,Size (Sqft),Horizontal Airspeed (mph),Vertical Descent Airspeed (mph)
+name,description,horizontal_mph,vertical_mph
 Military,400-360,23.5,8.5
 Student,280-200,25,8.5
 Novice,190-170,30,12.5

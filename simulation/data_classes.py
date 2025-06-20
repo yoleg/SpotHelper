@@ -5,7 +5,7 @@ from PIL import Image
 
 # lat lon coordinates class that can be instantiated without keyword args, namedtuple style
 @dataclass(frozen=True)
-class LatLon:
+class Coordinates:
     lat: float
     lon: float
 
@@ -24,17 +24,17 @@ class LatLon:
 
 @dataclass
 class SimulationConfig:
-    location: LatLon = LatLon(39.7065614, -75.0352181)
+    location: Coordinates = Coordinates(39.7065614, -75.0352181)
     exit_altitude_ft: float = 13000  # Exit altitude (ft)
-    deploy_altitude_ft: float = 3000  # Canopy deployment altitude (ft)
+    canopy_deploy_altitude_ft: float = 3000  # Canopy deployment altitude (ft)
     mass_kg: float = 90  # Skydiver mass (kg)
-    CdA: float = 0.505  # Drag area (m^2)
-    canopy_v_vert_fps: float = 8  # Canopy vertical descent rate (ft/s)
-    canopy_v_horiz_fps: float = 24  # Canopy horizontal speed (ft/s) for glide circle
-    dt: float = 0.1  # Time step (s)
-    sat_img_zoom: int = 13  # Satellite image zoom level
-    sat_img_size: int = 400  # Satellite image size (pixels)
-    circle_resolution: int = 200  # Number of points for glide circle
+    freefall_drag_area_m2: float = 0.505  # Drag area (m^2)
+    canopy_vertical_descent_rate_fps: float = 8  # Canopy vertical descent rate (ft/s)
+    canopy_horizontal_speed_fps: float = 24  # Canopy horizontal speed (ft/s) for glide circle
+    plot_time_step_s: float = 0.1  # Time step (s)
+    satellite_image_zoom: int = 13  # Satellite image zoom level
+    satellite_image_size: int = 400  # Satellite image size (pixels)
+    plot_circle_resolution: int = 200  # Number of points for glide circle
 
     @property
     def mass_lb(self):
@@ -47,8 +47,8 @@ class SimulationConfig:
 
 @dataclass(frozen=True)
 class SimulationResults:
-    ip: LatLon
-    exit: LatLon
+    ip: Coordinates
+    exit: Coordinates
 
     circle_latitudes: list
     circle_longitudes: list
@@ -57,8 +57,8 @@ class SimulationResults:
     trajectory_longitudes: list
 
     @property
-    def final_latlon(self) -> LatLon:
-        return LatLon(self.trajectory_latitudes[-1], self.trajectory_longitudes[-1])
+    def final_latlon(self) -> Coordinates:
+        return Coordinates(self.trajectory_latitudes[-1], self.trajectory_longitudes[-1])
 
 
 @dataclass(frozen=True)

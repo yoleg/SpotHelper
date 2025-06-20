@@ -1,9 +1,8 @@
 import numpy as np
 from pandas import DataFrame
 
-from simulation.fetch import get_winds_aloft_table
-from simulation.data_classes import LatLon, SimulationConfig, SimulationResults
-from simulation.functions import get_wind_component_interpolators, simulate_freefall_and_canopy, meters_to_latlon
+from simulation.data_classes import Coordinates, SimulationConfig, SimulationResults
+from simulation.functions import get_wind_component_interpolators, meters_to_latlon, simulate_freefall_and_canopy
 
 
 def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResults:
@@ -39,9 +38,9 @@ def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResu
     traj_lat, traj_lon = meters_to_latlon(norths, easts, ip_latlon)
 
     # Calculate canopy glide distance (in meters)
-    canopy_v_vert_mps = config.canopy_v_vert_fps * 0.3048
-    canopy_v_horiz_mps = config.canopy_v_horiz_fps * 0.3048
-    deploy_alt_m = config.deploy_altitude_ft * 0.3048
+    canopy_v_vert_mps = config.canopy_vertical_descent_rate_fps * 0.3048
+    canopy_v_horiz_mps = config.canopy_horizontal_speed_fps * 0.3048
+    deploy_alt_m = config.canopy_deploy_altitude_ft * 0.3048
 
     # Time under canopy (seconds)
     canopy_time = deploy_alt_m / canopy_v_vert_mps
@@ -49,7 +48,7 @@ def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResu
     glide_distance = canopy_v_horiz_mps * canopy_time
 
     # Generate circle points around exit location
-    theta = np.linspace(0, 2 * np.pi, config.circle_resolution)
+    theta = np.linspace(0, 2 * np.pi, config.plot_circle_resolution)
     circle_north = glide_distance * np.cos(theta)
     circle_east = glide_distance * np.sin(theta)
     circle_lat, circle_lon = meters_to_latlon(
@@ -68,7 +67,7 @@ def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResu
     )
 
 
-def meters_offset_to_latlon(north_offset, east_offset, location: LatLon):
+def meters_offset_to_latlon(north_offset, east_offset, location: Coordinates):
     dlat = north_offset / 111320
     dlon = east_offset / (111320 * np.cos(np.radians(location.lat)))
-    return LatLon(location.lat + dlat, location.lon + dlon)
+    return Coordinates(location.lat + dlat, location.lon + dlon)

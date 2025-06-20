@@ -9,11 +9,11 @@ from pandas import DataFrame
 from PIL import Image
 
 from simulation.const import MAP_CACHE_TTL_SECONDS, WINDS_ALOFT_CACHE_TTL_SECONDS
-from simulation.data_classes import LatLon, MapImage
+from simulation.data_classes import Coordinates, MapImage
 
 
 @st.cache_data(ttl=WINDS_ALOFT_CACHE_TTL_SECONDS, show_spinner="Fetching winds aloft")
-def get_winds_aloft_table(coordinates: LatLon) -> DataFrame:
+def get_winds_aloft_table(coordinates: Coordinates) -> DataFrame:
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={coordinates.lat}&longitude={coordinates.lon}"
@@ -79,7 +79,7 @@ def get_winds_aloft_table(coordinates: LatLon) -> DataFrame:
 
 
 @st.cache_data(ttl=MAP_CACHE_TTL_SECONDS, show_spinner="Fetching satellite image")
-def get_satellite_image(coordinates: LatLon, zoom=13, size=400) -> MapImage | None:
+def get_satellite_image(coordinates: Coordinates, zoom=13, size=400) -> MapImage | None:
     """
     Downloads a satellite image centered at (latitude, longitude) using Yandex Static Maps.
     Returns a PIL Image and the bounding box (lat_min, lat_max, lon_min, lon_max).

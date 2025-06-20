@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-from simulation.data_classes import LatLon, SimulationConfig
+from simulation.data_classes import Coordinates, SimulationConfig
 
 
 def get_wind_component_interpolators(wind_df):
@@ -24,7 +24,7 @@ def get_wind_component_interpolators(wind_df):
     return north_interp, east_interp
 
 
-def meters_to_latlon(north, east, location: LatLon):
+def meters_to_latlon(north, east, location: Coordinates):
     """
     Converts north/east meters to latitude/longitude offsets from (lat0, lon0).
     Returns arrays of latitudes and longitudes.
@@ -120,13 +120,13 @@ def simulate_freefall_and_canopy(
     Returns arrays: alts_ft, norths_m, easts_m, times_s, phases (0=freefall, 1=canopy)
     """
     alt = config.exit_altitude_ft * 0.3048
-    deploy_alt_m = config.deploy_altitude_ft * 0.3048
+    deploy_alt_m = config.canopy_deploy_altitude_ft * 0.3048
     v_vert = v_vert0
     north = north0
     east = east0
     g = 9.81
 
-    canopy_v_vert = config.canopy_v_vert_fps * 0.3048
+    canopy_v_vert = config.canopy_vertical_descent_rate_fps * 0.3048
 
     alts = []
     norths = []
@@ -148,20 +148,20 @@ def simulate_freefall_and_canopy(
             temp = 288.15 - 0.0065 * alt
             R_specific = 287.058
             rho = pressure / (R_specific * temp)
-            drag = 0.5 * rho * v_vert ** 2 * config.CdA * np.sign(v_vert)
+            drag = 0.5 * rho * v_vert ** 2 * config.freefall_drag_area_m2 * np.sign(v_vert)
             F_net = config.mass_lb * g - drag
             a = F_net / config.mass_lb
-            v_vert += a * config.dt
-            alt -= v_vert * config.dt
-            north += wind_north * config.dt
-            east += wind_east * config.dt
+            v_vert += a * config.plot_time_step_s
+            alt -= v_vert * config.plot_time_step_s
+            north += wind_north * config.plot_time_step_s
+            east += wind_east * config.plot_time_step_s
             phase = 0
         else:
             # Non-gliding canopy: only wind drift, constant vertical descent
             v_vert = canopy_v_vert
-            north += wind_north * config.dt
-            east += wind_east * config.dt
-            alt -= v_vert * config.dt
+            north += wind_north * config.plot_time_step_s
+            east += wind_east * config.plot_time_step_s
+            alt -= v_vert * config.plot_time_step_s
             phase = 1
 
         alts.append(alt / 0.3048)
@@ -169,6 +169,6 @@ def simulate_freefall_and_canopy(
         easts.append(east)
         times.append(t)
         phases.append(phase)
-        t += config.dt
+        t += config.plot_time_step_s
 
     return np.array(alts), np.array(norths), np.array(easts), np.array(times), np.array(phases)
