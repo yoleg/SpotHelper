@@ -3,6 +3,7 @@ import dataclasses
 import streamlit as st
 
 from simulation.data_classes import SimulationConfig
+from ui.canopies import get_canopies
 from ui.input_location import input_location, Location
 
 
@@ -10,16 +11,19 @@ def form_simulation_config() -> SimulationConfig:
     default = SimulationConfig()
     previous = st.session_state.get('simulation_config', default)
     with st.expander("Location", expanded=True):
-        location = input_location(default=Location(coordinates=previous.location))
+        default_location = Location(coordinates=previous.coordinates, dropzone_name=previous.dropzone_name)
+        location = input_location(default_location)
     config = _form_simulation_config(default=previous)
-    config.location = location.coordinates
+    # TODO: this needs some redesign, as it's getting messy
+    config.dropzone_display_name = location.dropzone_name
+    config.coordinates = location.coordinates
     st.session_state['simulation_config'] = config
     return config
 
 
 def _form_simulation_config(default: SimulationConfig) -> SimulationConfig:
     config = dataclasses.replace(default)
-    with st.expander("Freefall", expanded=True):
+    with st.expander("Altitudes", expanded=True):
         config.exit_altitude_ft = st.number_input(
             'Exit Altitude (ft)',
             key='exit_altitude_ft',
@@ -28,6 +32,60 @@ def _form_simulation_config(default: SimulationConfig) -> SimulationConfig:
             value=default.exit_altitude_ft,
             step=500
         )
+        config.canopy_deploy_altitude_ft = st.number_input(
+            'Canopy Deployment Altitude (ft)',
+            key='canopy_deploy_altitude_ft',
+            min_value=500,
+            max_value=15000,
+            value=default.canopy_deploy_altitude_ft,
+            step=500
+        )
+    with st.expander("Canopy", expanded=True):
+        canopies = get_canopies()
+
+        def _update_canopy_speeds():
+            if canopy := st.session_state.get('canopy_select', None):
+                st.session_state['canopy_horizontal_speed_mph'] = float(canopy.horizontal_mph)
+                st.session_state['canopy_vertical_descent_rate_mph'] = float(canopy.vertical_mph)
+
+        def _update_canopy_name():
+            horizontal_mph = st.session_state['canopy_horizontal_speed_mph']
+            vertical_mph = st.session_state['canopy_vertical_descent_rate_mph']
+            matching_canopy = next((
+                c for c in canopies
+                if c.horizontal_mph == horizontal_mph and c.vertical_mph == vertical_mph
+            ), None)
+            st.session_state['canopy_select'] = matching_canopy
+
+        options = [""] + [c for c in canopies]
+        st.selectbox(
+            'Canopy',
+            key='canopy_select',
+            options=options,
+            format_func=lambda x: x.display_name if x else "",
+            index=next((i for i, c in enumerate(options) if c and c.display_name == default.canopy_name), 0),
+            on_change=_update_canopy_speeds,
+        )
+        config.canopy_vertical_descent_rate_mph = st.number_input(
+            'Canopy Vertical Descent Rate (mph)',
+            key='canopy_vertical_descent_rate_mph',
+            min_value=1.0,
+            max_value=200.0,
+            step=1.0,
+            value=float(default.canopy_vertical_descent_rate_mph),
+            on_change=_update_canopy_name,
+        )
+        config.canopy_horizontal_speed_mph = st.number_input(
+            'Canopy Horizontal Speed (mph)',
+            key='canopy_horizontal_speed_mph',
+            min_value=1.0,
+            max_value=200.0,
+            step=1.0,
+            value=float(default.canopy_horizontal_speed_mph),
+            on_change=_update_canopy_name,
+        )
+
+    with st.expander("Freefall", expanded=False):
         config.mass_lb = st.number_input(
             'Skydiver Mass (lb)',
             key='mass_lb',
@@ -44,30 +102,6 @@ def _form_simulation_config(default: SimulationConfig) -> SimulationConfig:
             value=default.freefall_drag_area_m2,
             step=0.01,
             format="%.2f"
-        )
-    with st.expander("Canopy", expanded=True):
-        config.canopy_deploy_altitude_ft = st.number_input(
-            'Canopy Deployment Altitude (ft)',
-            key='canopy_deploy_altitude_ft',
-            min_value=500,
-            max_value=15000,
-            value=default.canopy_deploy_altitude_ft,
-            step=500
-        )
-        config.canopy_vertical_descent_rate_fps = st.number_input(
-            'Canopy Vertical Descent Rate (ft/s)',
-            key='canopy_vertical_descent_rate_fps',
-            min_value=1,
-            max_value=20,
-            value=default.canopy_vertical_descent_rate_fps,
-        )
-        config.canopy_horizontal_speed_fps = st.number_input(
-            'Canopy Horizontal Speed (ft/s)',
-            key='canopy_horizontal_speed_fps',
-            min_value=1,
-            max_value=50,
-            value=default.canopy_horizontal_speed_fps,
-            step=1,
         )
     with st.expander("Plot", expanded=True):
         config.plot_time_step_s = st.number_input(

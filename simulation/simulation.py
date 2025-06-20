@@ -7,7 +7,7 @@ from simulation.functions import get_wind_component_interpolators, meters_to_lat
 
 def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResults:
     # Pull Winds
-    ip_latlon = config.location
+    ip_latlon = config.coordinates
     north_interp, east_interp = get_wind_component_interpolators(winds)
 
     # First simulation: exit directly over target
@@ -38,8 +38,8 @@ def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResu
     traj_lat, traj_lon = meters_to_latlon(norths, easts, ip_latlon)
 
     # Calculate canopy glide distance (in meters)
-    canopy_v_vert_mps = config.canopy_vertical_descent_rate_fps * 0.3048
-    canopy_v_horiz_mps = config.canopy_horizontal_speed_fps * 0.3048
+    canopy_v_vert_mps = config.canopy_vertical_descent_rate_mph * 0.44704  # Convert mph to m/s
+    canopy_v_horiz_mps = config.canopy_horizontal_speed_mph * 0.44704  # Convert mph to m/s
     deploy_alt_m = config.canopy_deploy_altitude_ft * 0.3048
 
     # Time under canopy (seconds)
@@ -53,7 +53,7 @@ def run_simulation(config: SimulationConfig, winds: DataFrame) -> SimulationResu
     circle_east = glide_distance * np.sin(theta)
     circle_lat, circle_lon = meters_to_latlon(
         circle_north + required_north_offset, circle_east + required_east_offset,
-        config.location
+        config.coordinates
     )
 
     return SimulationResults(

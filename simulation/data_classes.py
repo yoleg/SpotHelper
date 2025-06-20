@@ -24,13 +24,15 @@ class Coordinates:
 
 @dataclass
 class SimulationConfig:
-    location: Coordinates = Coordinates(39.7065614, -75.0352181)
+    dropzone_name: str = "Skydive Cross Keys"
+    coordinates: Coordinates = Coordinates(39.7065614, -75.0352181)
     exit_altitude_ft: float = 13000  # Exit altitude (ft)
     canopy_deploy_altitude_ft: float = 3000  # Canopy deployment altitude (ft)
     mass_kg: float = 90  # Skydiver mass (kg)
     freefall_drag_area_m2: float = 0.505  # Drag area (m^2)
-    canopy_vertical_descent_rate_fps: float = 8  # Canopy vertical descent rate (ft/s)
-    canopy_horizontal_speed_fps: float = 24  # Canopy horizontal speed (ft/s) for glide circle
+    canopy_name: str = "Student (280-200)"
+    canopy_vertical_descent_rate_mph: float = 8.5  # Canopy vertical descent rate (ft/s)
+    canopy_horizontal_speed_mph: float = 25.0  # Canopy horizontal speed (ft/s) for glide circle
     plot_time_step_s: float = 0.1  # Time step (s)
     satellite_image_zoom: int = 13  # Satellite image zoom level
     satellite_image_size: int = 400  # Satellite image size (pixels)

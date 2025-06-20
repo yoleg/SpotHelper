@@ -18,7 +18,7 @@ class Canopy:
 
     @property
     def display_name(self) -> str:
-        return f"{self.name} ({self.description}, {self.horizontal_mph} mph x {self.vertical_mph} mph)"
+        return f"{self.name} ({self.description})"
 
     def __str__(self):
         return self.display_name

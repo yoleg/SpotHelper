@@ -36,7 +36,7 @@ class Dropzone:  # dataclass for type hinting and validation, and immutability
         return f"{self.Locality}, {self.Country}"
 
     @property
-    def location(self) -> Coordinates:
+    def coordinates(self) -> Coordinates:
         return Coordinates(self.Latitude, self.Longitude)
 
     def __str__(self):
@@ -45,6 +45,8 @@ class Dropzone:  # dataclass for type hinting and validation, and immutability
 
 DROPZONE_FIELDS = {f.name for f in dataclasses.fields(Dropzone)}
 
+
+@st.cache_data(ttl=60, show_spinner="Loading dropzones")
 def get_dropzones() -> list[Dropzone]:
     df = get_dropzones_df()
     dropzones = [Dropzone(**row) for row in df.to_dict(orient='records')]
@@ -75,7 +77,7 @@ def get_dropzones_df() -> pd.DataFrame:
     return df
 
 
-@st.cache_data(ttl=3600, show_spinner="Fetching dropzones")
+@st.cache_data(ttl=3600, show_spinner=f"Fetching dropzones from {DROPZONES_SOURCE_NAME}")
 def _scrape_dropzones_from_website() -> pd.DataFrame | None:
     """
     Fetches the dropzones from the Wingsuit World website or falls back to a local CSV file.

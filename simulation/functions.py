@@ -126,7 +126,7 @@ def simulate_freefall_and_canopy(
     east = east0
     g = 9.81
 
-    canopy_v_vert = config.canopy_vertical_descent_rate_fps * 0.3048
+    canopy_v_vert_mps = config.canopy_vertical_descent_rate_mph * 0.44704  # Convert mph to m/s
 
     alts = []
     norths = []
@@ -158,7 +158,7 @@ def simulate_freefall_and_canopy(
             phase = 0
         else:
             # Non-gliding canopy: only wind drift, constant vertical descent
-            v_vert = canopy_v_vert
+            v_vert = canopy_v_vert_mps
             north += wind_north * config.plot_time_step_s
             east += wind_east * config.plot_time_step_s
             alt -= v_vert * config.plot_time_step_s

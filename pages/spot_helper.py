@@ -16,9 +16,9 @@ def main():
     with st.sidebar:
         config = form_simulation_config()
 
-    winds = get_winds_aloft_table(config.location)
+    winds = get_winds_aloft_table(config.coordinates)
     simulation_results = run_simulation(config, winds=winds)
-    satellite_image = get_satellite_image(config.location, zoom=config.satellite_image_zoom, size=config.satellite_image_size)
+    satellite_image = get_satellite_image(config.coordinates, zoom=config.satellite_image_zoom, size=config.satellite_image_size)
     if not satellite_image:
         st.warning("Satellite image could not be retrieved. Plotting trajectory only.")
     fig = make_plot(simulation_results, map_image=satellite_image)
