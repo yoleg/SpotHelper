@@ -1,9 +1,8 @@
-import logging
 from pathlib import Path
 
 import streamlit as st
 
-pages_root = Path(__file__).parent
+pages_root = Path('.')
 pages = [
     st.Page(pages_root / r"pages/spot_helper.py", title="Spot Helper Demo", icon="🪂"),
     st.Page(pages_root / r"pages/winds.py", title="Winds Aloft", icon="🌬️"),
