@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from PIL import Image
+from geopy.distance import geodesic
 
 
 # lat lon coordinates class that can be instantiated without keyword args, namedtuple style
@@ -20,6 +21,9 @@ class Coordinates:
 
     def __iter__(self):
         return iter((self.lat, self.lon))
+
+    def distance_to(self, other: 'Coordinates') -> float:
+        return geodesic((self.lat, self.lon), (other.lat, other.lon)).meters
 
 
 @dataclass

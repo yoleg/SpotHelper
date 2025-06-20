@@ -23,11 +23,12 @@ def main():
         st.warning("Satellite image could not be retrieved. Plotting trajectory only.")
     fig = make_plot(simulation_results, map_image=satellite_image)
 
-    image_download_button(fig)
-
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown(f"*Landing at: {simulation_results.final_latlon}*")
+    with col2:
+        image_download_button(fig)
     st.pyplot(fig, use_container_width=True)
-
-    st.markdown(f"*Landing at: {simulation_results.final_latlon}*")
 
 
 def image_download_button(fig):
@@ -39,7 +40,8 @@ def image_download_button(fig):
         label='Download Image',
         data=img_buf,
         file_name='skydiving_simulation.png',
-        mime='image/png'
+        mime='image/png',
+        icon="📥",
     )
 
 

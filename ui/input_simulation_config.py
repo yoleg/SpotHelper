@@ -103,16 +103,7 @@ def _form_simulation_config(default: SimulationConfig) -> SimulationConfig:
             step=0.01,
             format="%.2f"
         )
-    with st.expander("Plot", expanded=True):
-        config.plot_time_step_s = st.number_input(
-            'Plot Time Step (s)',
-            key='plot_time_step_s',
-            min_value=0.01,
-            max_value=1.0,
-            value=default.plot_time_step_s,
-            step=0.01,
-            format="%.2f"
-        )
+    with st.expander("Satellite", expanded=True):
         config.satellite_image_zoom = st.slider(
             'Satellite Image Zoom Level',
             key='satellite_image_zoom',
@@ -126,10 +117,20 @@ def _form_simulation_config(default: SimulationConfig) -> SimulationConfig:
             'Satellite Image Size (pixels)',
             key='satellite_image_size',
             min_value=200,
-            max_value=1000,
+            max_value=500,
             value=default.satellite_image_size,
             step=50,
             format="%d"
+        )
+    with st.expander("Plot", expanded=False):
+        config.plot_time_step_s = st.number_input(
+            'Plot Time Step (s)',
+            key='plot_time_step_s',
+            min_value=0.01,
+            max_value=1.0,
+            value=default.plot_time_step_s,
+            step=0.01,
+            format="%.2f"
         )
         config.plot_circle_resolution = st.slider(
             'Plot Circle Resolution',

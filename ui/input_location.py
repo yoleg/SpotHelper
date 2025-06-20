@@ -23,6 +23,11 @@ def input_location(default: Location) -> Location:
 
     coordinates = coordinates_select(default=default_coordinates)
 
+    if dropzone and coordinates and (coordinates != dropzone.coordinates):
+        closest_dropzone = min(get_dropzones(), key=lambda dz: dz.coordinates.distance_to(coordinates), default=None)
+        if closest_dropzone and closest_dropzone != dropzone:
+            st.warning(f"Closest dropzone is {closest_dropzone.display_name}.")
+
     return Location(coordinates=coordinates, dropzone_name=dropzone.display_name if dropzone else "")
 
 
@@ -48,7 +53,7 @@ def coordinates_select(default) -> Coordinates:
         key='location_latitude',
         min_value=-90.0,
         max_value=90.0,
-        step=0.0001,
+        step=0.001,
         format="%.6f",
         value=default.lat,
     )
@@ -57,7 +62,7 @@ def coordinates_select(default) -> Coordinates:
         key='location_longitude',
         min_value=-180.0,
         max_value=180.0,
-        step=0.0001,
+        step=0.001,
         format="%.6f",
         value=default.lon,
     )
